@@ -1,0 +1,21 @@
+code,station_name,name_basis,returned_rows_in_run1
+AGC,Agra Cantt,USER_LIST_AGREED,no
+ASR,Amritsar Junction,USER_LIST_AGREED,yes
+BRC,Vadodara Junction,USER_LIST_AGREED,yes
+CNB,Kanpur Central,USER_LIST_AGREED,yes
+ERS,Ernakulam Junction,USER_LIST_AGREED,yes
+HWH,Howrah Junction,USER_LIST_AGREED,yes
+INDB,Indore Junction,USER_LIST_AGREED,yes
+JAT,Jammu Tawi,USER_LIST_AGREED,yes
+KOP,Shri Chhatrapati Shahu Maharaj Terminus,USER_LIST_AGREED,yes
+MAQ,Mangaluru Central,USER_LIST_AGREED,yes
+MAS,MGR Chennai Central,USER_LIST_AGREED,yes
+NDLS,New Delhi,USER_LIST_AGREED,yes
+NED,Hazur Sahib Nanded,USER_LIST_AGREED,yes
+NJP,New Jalpaiguri,USER_LIST_AGREED,yes
+NK,Nashik Road,USER_LIST_AGREED,no
+PNBE,Patna Junction,USER_LIST_AGREED,yes
+SC,Secunderabad Junction,USER_LIST_AGREED,yes
+SBC,KSR Bengaluru City,USER_LIST_AGREED,yes
+TVC,Thiruvananthapuram Central,USER_LIST_AGREED,yes
+UBL,SSS Hubballi Junction,USER_LIST_AGREED,yes
