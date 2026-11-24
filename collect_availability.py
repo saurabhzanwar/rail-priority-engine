@@ -8,7 +8,7 @@ Settings (all environment variables, all optional):
   CORRIDOR_GROUPS  corridor groups to run, default "A,B,C" (D is road-heavy, off in the list)
   WORKERS      parallel queries, default 4 (free Apify plan allows about 5 at once)
   MAX_ROWS     stop when this many rows have been billed (about $0.001 each)
-  MAX_MINUTES  stop starting new queries after this many minutes, default 150
+  MAX_MINUTES  stop starting new queries after this many minutes, default 200
   PROBE        "1" to also test the shorter leg when a pair is waitlisted
   TRIGGER      "schedule" makes the run obey RUN_DATES; anything else always runs
   RUN_DATES    comma separated YYYY-MM-DD run days, used only when TRIGGER=schedule
@@ -46,7 +46,7 @@ LEADS = [int(x) for x in (os.environ.get("LEADS") or "1,7,30").split(",") if x.s
 GROUPS = [g.strip().upper() for g in (os.environ.get("CORRIDOR_GROUPS") or "A,B,C").split(",") if g.strip()]
 WORKERS = int(os.environ.get("WORKERS") or "4")
 MAX_ROWS = int(os.environ.get("MAX_ROWS") or "5500")
-MAX_MINUTES = float(os.environ.get("MAX_MINUTES") or "150")
+MAX_MINUTES = float(os.environ.get("MAX_MINUTES") or "200")
 PROBE = (os.environ.get("PROBE") or "0") == "1"
 TRIGGER = os.environ.get("TRIGGER", "")
 RUN_DATES = [d.strip() for d in (os.environ.get("RUN_DATES") or "").split(",") if d.strip()]
@@ -87,6 +87,12 @@ def parse_status(raw):
         return "WL", None, m.group(1), int(m.group(2)), None
     if s == "NOT AVAILABLE":
         return "NOT_AVAILABLE", None, "", None, None
+    if s == "TRAIN CANCELLED":
+        return "CANCELLED", None, "", None, None
+    if s == "REGRET":
+        return "REGRET", None, "", None, None        # booking closed for this train and date
+    if s == "CLASS NOT EXIST":
+        return "NO_CLASS", None, "", None, None
     if s.startswith("CHARTING DONE"):
         return "CHARTED", None, "", None, None   # chart prepared, different pool
     return "OTHER", None, "", None, None
