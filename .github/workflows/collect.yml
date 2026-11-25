@@ -1,11 +1,15 @@
 name: collect availability
 
 on:
-  # Daily trigger at 14:00 IST (08:30 UTC). It only does work on the dates listed
-  # in the repository variable RUN_DATES, so it costs nothing on other days.
+  # Daily trigger at 14:00 IST (08:30 UTC), plus two backups at 15:00 and 16:00 IST.
+  # GitHub schedules are best effort and can be late or dropped. The backups only run
+  # the collection if no snapshot for today is saved yet, so they never bill twice.
+  # Every scheduled run also obeys the repository variable RUN_DATES.
   schedule:
     - cron: "30 8 * * *"
-  # Manual trigger: shows a form with these boxes
+    - cron: "30 9 * * *"
+    - cron: "30 10 * * *"
+  # Manual trigger: shows a form. Defaults are the daily setup, so one click is enough.
   workflow_dispatch:
     inputs:
       groups:
@@ -13,19 +17,19 @@ on:
         default: "A,B,C"
       leads:
         description: "Days ahead to sample, comma separated"
-        default: "1"
+        default: "1,3,7,14,30"
       max_rows:
         description: "Stop after this many billed rows (1000 rows = about $1)"
-        default: "2500"
+        default: "3000"
       probe:
         description: "1 = also test the shorter leg when a pair is waitlisted"
         default: "0"
       tag:
-        description: "Short label for this run, used in the folder name"
-        default: "trial"
+        description: "Short label for this run. Keep daily for the normal snapshot"
+        default: "daily"
       corridors_file:
         description: "Corridor list file in the repo"
-        default: "corridors.csv"
+        default: "corridors_daily.csv"
 
 permissions:
   contents: read
@@ -41,13 +45,42 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Guard (scheduled runs only)
+        id: guard
+        if: github.event_name == 'schedule'
+        env:
+          DATA_REPO_TOKEN: ${{ secrets.DATA_REPO_TOKEN }}
+          OWNER: ${{ github.repository_owner }}
+          RUN_DATES: ${{ vars.RUN_DATES }}
+        run: |
+          DAY=$(TZ=Asia/Kolkata date +%F)
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+          case ",${RUN_DATES// /}," in
+            *",${DAY},"*) ;;
+            *)
+              echo "$DAY is not in RUN_DATES. Nothing to do."
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              exit 0
+              ;;
+          esac
+          git clone --depth 1 "https://x-access-token:${DATA_REPO_TOKEN}@github.com/${OWNER}/rail-data-private.git" guard_repo
+          if ls -d guard_repo/data/${DAY}/*_daily >/dev/null 2>&1; then
+            echo "Snapshot for $DAY is already saved. Skipping, nothing billed."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No snapshot for $DAY yet. Collecting."
+          fi
+
       - uses: actions/setup-python@v5
+        if: steps.guard.outputs.skip != 'true'
         with:
           python-version: "3.12"
 
-      - run: pip install requests
+      - if: steps.guard.outputs.skip != 'true'
+        run: pip install requests
 
       - name: Collect
+        if: steps.guard.outputs.skip != 'true'
         env:
           APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
           TRIGGER: ${{ github.event_name }}
@@ -56,18 +89,18 @@ jobs:
           LEADS: ${{ github.event.inputs.leads || vars.LEADS || '1,7,30' }}
           MAX_ROWS: ${{ github.event.inputs.max_rows || vars.MAX_ROWS || '5500' }}
           PROBE: ${{ github.event.inputs.probe || vars.PROBE || '0' }}
-          RUN_TAG: ${{ github.event.inputs.tag || 'scheduled' }}
-          CORRIDORS_FILE: ${{ github.event.inputs.corridors_file || 'corridors.csv' }}
+          RUN_TAG: ${{ github.event.inputs.tag || 'daily' }}
+          CORRIDORS_FILE: ${{ github.event.inputs.corridors_file || vars.CORRIDORS_FILE || 'corridors.csv' }}
           MAX_MINUTES: "200"
         run: python collect_availability.py
 
       - name: Save to private data repo
-        if: always()
+        if: always() && steps.guard.outputs.skip != 'true'
         env:
           DATA_REPO_TOKEN: ${{ secrets.DATA_REPO_TOKEN }}
           OWNER: ${{ github.repository_owner }}
-          RUN_TAG: ${{ github.event.inputs.tag || 'scheduled' }}
-          CORRIDORS_FILE: ${{ github.event.inputs.corridors_file || 'corridors.csv' }}
+          RUN_TAG: ${{ github.event.inputs.tag || 'daily' }}
+          CORRIDORS_FILE: ${{ github.event.inputs.corridors_file || vars.CORRIDORS_FILE || 'corridors.csv' }}
         run: |
           set -e
           if ! ls out/*.csv >/dev/null 2>&1; then
